@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LPC1768 DSO · Project demo</title>
+<style>
+:root{color-scheme:dark;font:16px system-ui,sans-serif;color:#e7eef4;background:#0c131a}*{box-sizing:border-box}body{margin:0;padding:32px 24px}main{max-width:1120px;margin:auto}header{display:flex;justify-content:space-between;gap:20px;align-items:center;border-bottom:1px solid #2e414e;padding-bottom:24px}h1{font-size:28px;margin:6px 0}p{line-height:1.55;color:#b6c6d1}.eyebrow{color:#6ce5af;font-size:12px;letter-spacing:.15em;font-weight:700}.label{border:1px solid #627343;border-radius:5px;padding:8px 12px;color:#e6edb5;white-space:nowrap}article{display:grid;grid-template-columns:minmax(0,1fr) 245px;gap:28px;margin-top:28px}canvas{width:100%;height:360px;display:block;background:#091219;border:1px solid #2c424e;border-radius:6px}aside{display:flex;flex-direction:column;gap:14px}label{display:flex;flex-direction:column;gap:6px;font-size:13px;color:#b6c6d1}select,input,button{font:inherit;padding:10px;border-radius:5px;border:1px solid #405564;background:#172631;color:#f1f5f8;min-width:0}input[type=range]{padding:0;accent-color:#6ce5af;width:100%}button{cursor:pointer}button:hover{background:#263f4e}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #6ce5af;outline-offset:3px}.buttons{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0}.primary{background:#6ce5af;color:#0d2018;border-color:#6ce5af;font-weight:700}.readouts{display:flex;gap:28px;flex-wrap:wrap;margin:20px 0}.readouts span{display:block;font-size:12px;color:#a9bdc9;margin-bottom:5px}.readouts strong{font:22px ui-monospace,monospace;font-weight:500}.note{font-size:13px}.warning{color:#ffc47c;min-height:44px}#status{color:#6ce5af;font-weight:600}footer{margin-top:28px;padding-top:16px;border-top:1px solid #2e414e;font-size:13px;color:#a9bdc9}details{margin-top:20px}summary{cursor:pointer}table{border-collapse:collapse;width:100%;margin-top:12px;font-size:14px}td,th{text-align:left;border-bottom:1px solid #2e414e;padding:10px 6px}a{color:#6ce5af}output{float:right;color:#e7eef4}@media(max-width:760px){body{padding:20px 14px}article{grid-template-columns:1fr}aside{display:grid;grid-template-columns:1fr 1fr}header{align-items:flex-start;flex-direction:column}canvas{height:290px}.readouts{gap:20px}h1{font-size:24px}}@media(max-width:400px){aside{grid-template-columns:1fr}.readouts strong{font-size:19px}}
+</style>
+<main>
+<header><div><div class="eyebrow">ECE PROJECT LAB / ARM CORTEX-M3</div><h1>Digital Storage Oscilloscope</h1><p style="margin:0">LPC1768 · single channel · 12-bit acquisition</p></div><div class="label">SIMULATED SIGNAL</div></header>
+<article><section aria-label="Waveform display">
+<canvas id="plot" role="img" aria-label="Simulated sampled voltage in volts against time in milliseconds"></canvas>
+<div class="readouts"><div><span>PEAK TO PEAK</span><strong id="vpp">—</strong></div><div><span>ESTIMATED FREQUENCY</span><strong id="freq">—</strong></div><div><span>FFT PEAK (256-pt)</span><strong id="fftPeak">—</strong></div><div><span>CAPTURE</span><strong id="status" aria-live="polite">Waiting</strong></div></div>
+<div class="buttons"><button id="run" class="primary">Hold</button><button id="arm">Re-arm</button><button id="viewToggle">Switch to FFT View</button><button id="export">Export capture CSV</button></div>
+<p class="warning note" id="warning" aria-live="polite"></p>
+<p class="note">This browser demo generates its own signal. It does not connect to your board. The delivered firmware draws waveforms and FFT spectra directly on an ILI9341 screen.</p>
+</section><aside aria-label="Signal and acquisition controls">
+<label>Signal<select id="shape"><option value="sine">Sine</option><option value="triangle">Triangle</option><option value="square">Square</option><option value="dc">DC</option></select></label>
+<label><span>Input frequency <output id="fval">100 Hz</output></span><input id="inputHz" type="range" min="10" max="4000" step="10" value="100"></label>
+<label><span>Input peak-to-peak <output id="aval">2.00 V</output></span><input id="amplitude" type="range" min="0" max="4" step="0.05" value="2"></label>
+<label>Sampling rate<select id="rate"><option>1000</option><option selected>5000</option><option>10000</option><option>20000</option></select></label>
+<label>Trigger mode<select id="mode"><option value="0">AUTO</option><option value="1">NORMAL</option><option value="2">SINGLE</option></select></label>
+<label>Trigger edge<select id="edge"><option value="rise">Rising</option><option value="fall">Falling</option></select></label>
+<label><span>Trigger level <output id="tval">1.65 V</output></span><input id="threshold" type="range" min="0.1" max="3.2" step="0.05" value="1.65"></label>
+<label>Visible samples<select id="window"><option>100</option><option selected>200</option><option>500</option><option>1000</option></select></label>
+</aside></article>
+<details><summary>What this demonstrates</summary><p>The capture retains 250 samples before the trigger and 749 after it. AUTO forces a capture after a timeout. NORMAL waits for a crossing. SINGLE holds after one triggered capture. The voltage scale is the ADC pin voltage. Input offset is fixed at 1.65 V.</p><p>Square and triangle waves contain harmonics. At low sampling rates those harmonics can alias even when their fundamental is below Nyquist. A real instrument needs analogue filtering and calibration. The FFT mode displays the 256-point radix-2 Cooley-Tukey spectrum computed directly on the capture frame with Bartlett windowing.</p><table><tr><th>Firmware input</th><th>Action</th></tr><tr><td>P2.0 / P2.1</td><td>Run/Hold / sample rate</td></tr><tr><td>P2.2 / P2.3</td><td>Mode / trigger edge</td></tr><tr><td>P2.4 / P2.5</td><td>Trigger up / trigger down</td></tr><tr><td>P2.6 (ZOOM key)</td><td>Toggle view: Scope Waveform ↔ FFT Spectrum</td></tr></table></details>
+<footer>Software preview only. Hardware timing, analogue accuracy and screen compatibility require testing on your board. Open <code>docs/BUILD_GUIDE.html</code> for assembly and flashing steps.</footer>
+</main>
+<script>
+'use strict';
+const $=id=>document.getElementById(id), N=1000, PRE=250, FFT_N=256, FFT_BINS=128;
+let running=true,frame=null,configAtCapture=null,phase=0,viewMode='scope';
+function config(){return {fs:+$('rate').value,f:+$('inputHz').value,amp:+$('amplitude').value,level:+$('threshold').value,mode:+$('mode').value,fall:$('edge').value==='fall',shape:$('shape').value};}
+function signal(t,c){let a=2*Math.PI*c.f*t+phase,w=0;if(c.shape==='sine')w=Math.sin(a);if(c.shape==='square')w=Math.sin(a)>=0?1:-1;if(c.shape==='triangle')w=2/Math.PI*Math.asin(Math.sin(a));return Math.round(Math.max(0,Math.min(3.3,1.65+c.amp/2*w))/3.3*4095);}
+function acquire(c){let ring=new Uint16Array(N),wr=0,filled=0,armed=false,triggered=false,left=0,forced=false;const level=Math.round(c.level/3.3*4095);for(let i=0;i<c.fs/4+N+2;i++){let v=signal(i/c.fs,c);ring[wr]=v;wr=(wr+1)%N;filled=Math.min(N,filled+1);if(triggered){if(--left===0){let a=Uint16Array.from({length:N},(_,j)=>ring[(wr+j)%N]);return {a,forced};}continue;}let crossing=armed&&(c.fall?v<=level:v>=level);if(c.fall?v>=level+16:v<=level-16)armed=true;if(crossing&&filled<=PRE)armed=false;if(filled>PRE&&(crossing||(c.mode===0&&i+1>=c.fs/4))){triggered=true;forced=!crossing;left=N-PRE-1;}}return null;}
+function measurements(a,c){let low=4095,high=0;for(const v of a){low=Math.min(low,v);high=Math.max(high,v);}const mid=(low+high)/2,h=Math.max(4,(high-low)/16);let armed=false,cross=[];if(high-low>=32)for(let i=1;i<a.length;i++){if(a[i-1]<=mid-h)armed=true;if(armed&&a[i-1]<mid&&a[i]>=mid){cross.push(i-1+(mid-a[i-1])/(a[i]-a[i-1]));armed=false;}}return {vpp:(high-low)*3.3/4095,f:cross.length>1?c.fs*(cross.length-1)/(cross.at(-1)-cross[0]):0,clip:low<=2||high>=4093};}
+function computeFFT(a, fs){
+  const re=new Float64Array(FFT_N), im=new Float64Array(FFT_N);
+  let mean=0;
+  for(let i=0;i<FFT_N;i++) mean+=a[PRE+i];
+  mean/=FFT_N;
+  for(let i=0;i<FFT_N;i++){
+    let win=1-Math.abs((i-127.5)/127.5);
+    re[i]=(a[PRE+i]-mean)*win;
+  }
+  for(let i=0,j=0;i<FFT_N;i++){
+    if(j>i){let tr=re[i];re[i]=re[j];re[j]=tr;let ti=im[i];im[i]=im[j];im[j]=ti;}
+    let m=FFT_N>>1;
+    while(m>=1&&j>=m){j-=m;m>>=1;}
+    j+=m;
+  }
+  for(let len=2;len<=FFT_N;len<<=1){
+    let half=len>>1, angle=-2*Math.PI/len;
+    let wstep_r=Math.cos(angle), wstep_i=Math.sin(angle);
+    for(let i=0;i<FFT_N;i+=len){
+      let wr=1, wi=0;
+      for(let j=0;j<half;j++){
+        let vr=re[i+j+half]*wr - im[i+j+half]*wi;
+        let vi=re[i+j+half]*wi + im[i+j+half]*wr;
+        re[i+j+half]=re[i+j]-vr;
+        im[i+j+half]=im[i+j]-vi;
+        re[i+j]+=vr;
+        im[i+j]+=vi;
+        let nwr=wr*wstep_r - wi*wstep_i;
+        wi=wr*wstep_i + wi*wstep_r;
+        wr=nwr;
+      }
+    }
+  }
+  const mag=new Float64Array(FFT_BINS);
+  let max=1e-6, peak=1;
+  for(let k=0;k<FFT_BINS;k++){
+    mag[k]=Math.sqrt(re[k]*re[k]+im[k]*im[k]);
+    if(k>0&&mag[k]>mag[peak]) peak=k;
+    if(mag[k]>max) max=mag[k];
+  }
+  return {mag, max, peak, peakFreq:peak*fs/FFT_N, binHz:fs/FFT_N};
+}
+function render(){
+  const canvas=$('plot'),box=canvas.getBoundingClientRect(),dpr=window.devicePixelRatio||1;
+  canvas.width=box.width*dpr;canvas.height=box.height*dpr;
+  const g=canvas.getContext('2d');g.scale(dpr,dpr);
+  const w=box.width,h=box.height,L=48,R=16,T=24,B=40,pw=w-L-R,ph=h-T-B;
+  g.fillStyle='#091219';g.fillRect(0,0,w,h);
+  g.font='12px system-ui';g.textBaseline='middle';
+  const cfg=configAtCapture||config();
+
+  if(viewMode==='fft'&&frame){
+    const fft=computeFFT(frame,cfg.fs);
+    for(let i=0;i<=5;i++){
+      let y=T+ph*i/5;
+      g.strokeStyle='#253c48';g.beginPath();g.moveTo(L,y);g.lineTo(w-R,y);g.stroke();
+      g.fillStyle='#a9bdc9';g.textAlign='right';
+      g.fillText((100*(1-i/5)).toFixed(0)+'%',L-8,y);
+    }
+    const nyquist=cfg.fs/2;
+    for(let i=0;i<=5;i++){
+      let x=L+pw*i/5;
+      g.strokeStyle='#253c48';g.beginPath();g.moveTo(x,T);g.lineTo(x,h-B);g.stroke();
+      g.fillStyle='#a9bdc9';g.textAlign='center';
+      let freq=(nyquist*i/5);
+      g.fillText(freq>=1000?(freq/1000).toFixed(1)+'k':freq.toFixed(0),x,h-B+17);
+    }
+    g.fillStyle='#a9bdc9';g.textAlign='left';g.fillText('Magnitude',12,14);
+    g.textAlign='center';g.fillText('Frequency (Hz) · Nyquist = '+(nyquist>=1000?(nyquist/1000).toFixed(1)+' kHz':nyquist+' Hz'),L+pw/2,h-8);
+    const barW=Math.max(1,pw/FFT_BINS-0.8);
+    for(let k=0;k<FFT_BINS;k++){
+      let barH=Math.min(ph,(fft.mag[k]/fft.max)*ph);
+      let x=L+k*(pw/FFT_BINS);
+      let y=T+ph-barH;
+      if(k===fft.peak&&fft.mag[k]>fft.max*0.15){
+        g.fillStyle='#f59e0b';
+        g.fillRect(x,y,barW,barH);
+        g.fillStyle='#fbbf24';
+        g.font='10px ui-monospace,monospace';
+        let label=(fft.peakFreq>=1000?(fft.peakFreq/1000).toFixed(2)+'k':fft.peakFreq.toFixed(0))+'Hz';
+        g.textAlign='center';
+        g.fillText(label,x+barW/2,Math.max(T+10,y-8));
+        g.font='12px system-ui';
+      } else if(k===0){
+        g.fillStyle='#818cf8';
+        g.fillRect(x,y,barW,barH);
+      } else {
+        g.fillStyle='#38bdf8';
+        g.fillRect(x,y,barW,barH);
+      }
+    }
+    return;
+  }
+
+  const count=+$('window').value,start=PRE-Math.floor(count/4);
+  for(let i=0;i<=5;i++){let y=T+ph*i/5;g.strokeStyle='#253c48';g.beginPath();g.moveTo(L,y);g.lineTo(w-R,y);g.stroke();g.fillStyle='#a9bdc9';g.textAlign='right';g.fillText((3.3*(1-i/5)).toFixed(2),L-8,y);}
+  for(let i=0;i<=10;i++){let x=L+pw*i/10;g.strokeStyle='#253c48';g.beginPath();g.moveTo(x,T);g.lineTo(x,h-B);g.stroke();if(i%2===0){g.fillStyle='#a9bdc9';g.textAlign='center';g.fillText(((i/10-.25)*count/cfg.fs*1000).toFixed(1),x,h-B+17);}}
+  g.fillStyle='#a9bdc9';g.textAlign='left';g.fillText('V',12,14);g.textAlign='center';g.fillText('Time from trigger (ms)',L+pw/2,h-8);
+  g.strokeStyle='#d39d54';g.setLineDash([4,5]);
+  const level=config().level;g.beginPath();g.moveTo(L,T+(1-level/3.3)*ph);g.lineTo(w-R,T+(1-level/3.3)*ph);g.moveTo(L+pw*.25,T);g.lineTo(L+pw*.25,h-B);g.stroke();g.setLineDash([]);
+  if(frame){g.strokeStyle='#6ce5af';g.lineWidth=1.6;g.beginPath();for(let i=0;i<count;i++){let x=L+pw*i/(count-1),y=T+(1-frame[start+i]/4095)*ph;i?g.lineTo(x,y):g.moveTo(x,y);}g.stroke();}
+  else{g.fillStyle='#b6c6d1';g.fillText('Waiting for a trigger',L+pw/2,T+ph/2);}
+}
+function update(){
+  const c=config();$('fval').textContent=c.f+' Hz';$('aval').textContent=c.amp.toFixed(2)+' V';$('tval').textContent=c.level.toFixed(2)+' V';
+  if(running){
+    const r=acquire(c);
+    if(r){
+      frame=r.a;configAtCapture={...c};
+      $('status').textContent=r.forced?'AUTO timeout':'Triggered';
+      if(c.mode===2){running=false;$('status').textContent='Single · held';}
+    } else $('status').textContent='Waiting';
+    phase+=.41;
+  }
+  if(frame){
+    const m=measurements(frame,configAtCapture);
+    $('vpp').textContent=m.vpp.toFixed(3)+' V';
+    $('freq').textContent=m.f?m.f.toFixed(1)+' Hz':'—';
+    const fft=computeFFT(frame,configAtCapture.fs);
+    $('fftPeak').textContent=(fft.peakFreq>=1000?(fft.peakFreq/1000).toFixed(2)+' kHz':fft.peakFreq.toFixed(0)+' Hz')+' [bin '+fft.peak+']';
+  } else {
+    $('vpp').textContent='—';$('freq').textContent='—';$('fftPeak').textContent='—';
+  }
+  let warnings=[];
+  if(c.f>=c.fs/2&&c.shape!=='dc')warnings.push('Input is at or above Nyquist: the trace can show a false frequency / aliasing.');
+  if(c.amp>3.3&&c.shape!=='dc')warnings.push('Input exceeds the ADC range: the simulated waveform clips.');
+  if(c.shape==='square'||c.shape==='triangle')warnings.push('Harmonics visible in FFT spectrum; analogue filter needed in hardware.');
+  $('warning').textContent=warnings.join(' ');
+  $('run').textContent=running?'Hold':'Run';
+  render();
+}
+$('run').onclick=()=>{running=!running;if(!running)$('status').textContent='Held';update();};
+$('arm').onclick=()=>{running=true;update();};
+$('viewToggle').onclick=()=>{
+  viewMode = viewMode === 'scope' ? 'fft' : 'scope';
+  $('viewToggle').textContent = viewMode === 'scope' ? 'Switch to FFT View' : 'Switch to Scope View';
+  render();
+};
+for(const id of ['shape','inputHz','amplitude','rate','mode','edge','threshold','window'])$(id).addEventListener('input',()=>{if(id==='rate'){frame=null;configAtCapture=null;}update();});
+$('export').onclick=()=>{if(!frame){$('warning').textContent='Capture a waveform before exporting.';return;}const fs=configAtCapture.fs,rows=['# Simulated waveform; not hardware measurements','sample,time_s,adc_code,voltage_v'];frame.forEach((v,i)=>rows.push([i,((i-PRE)/fs).toFixed(7),v,(v*3.3/4095).toFixed(6)].join(',')));const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([rows.join('\n')],{type:'text/csv'}));a.download='simulated_capture.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);};
+window.addEventListener('resize',render);update();setInterval(()=>{if(running)update();},400);
+window.DSOTest={acquire,measurements,config,computeFFT};
+</script>
+</html>
